@@ -1,0 +1,112 @@
+VIVA: SmartWeatherSystem
+Date: 2026-01-31
+
+Overview
+--------
+SmartWeatherSystem is a small, layered Flask web application that demonstrates a clean separation of concerns and common architectural patterns. The system provides user registration and login, fetches weather data from an external API, stores user search history, and raises weather alerts using a Factory + Observer pattern. This document explains how the system is organized, what each module does, and how the main components interact.
+
+High-level Architecture
+-----------------------
+The project follows a layered architecture with clear boundaries:
+
+- Web (presentation) layer: Handles HTTP routes, templates, and static assets (HTML, CSS, JavaScript).
+- Application (service) layer: Contains business logic, interfaces, services, and observers.
+- Domain layer: Domain entities and ORM models (database representation).
+- Infrastructure layer: External integrations (weather API client) and persistence helpers.
+
+Architectural Patterns Used
+---------------------------
+- Adapter: The OpenWeatherAdapter adapts external API responses to the app's expected weather format, keeping the rest of the application API-agnostic.
+- Factory: AlertFactory (in application/factories.py) creates appropriate alert objects depending on weather conditions.
+- Observer: AlertSystem observes WeatherService; when WeatherService obtains new weather data, it notifies AlertSystem which generates alerts.
+- Repository-like access: infrastructure/data.py provides helpers to create and iterate database sessions (a minimal repository pattern).
+- Blueprint modularization: The Flask routes are organized inside the web blueprint for modular routing and templates.
+
+Modules and Responsibilities
+----------------------------
+1. app.py
+   - Application entrypoint and Flask app factory (create_app).
+   - Configures static folder and registers the web blueprint.
+   - Calls database initialization (init_db) to ensure tables exist.
+
+2. web/
+   - templates/index.html: Login and registration page (forms).
+   - templates/weather.html: Weather dashboard showing current weather, 8-day forecast, alerts, and search history.
+   - static/script.js: Client-side logic: form handlers (register, login), calls backend endpoints, renders current weather, forecast, alerts, and history. Also contains history filtering logic.
+   - static/styles.css: Styling for the UI.
+   - routes.py: Flask blueprint that exposes routes:
+     - GET / -> index.html
+     - GET /weather -> weather.html
+     - POST /api/register -> register a user (validates schema)
+     - POST /api/login -> authenticate user
+     - GET /api/weather -> fetch current + forecast via the service layer
+     - GET /api/history/<user_id> -> return the user's search history
+   - routes.py wires the WeatherService to an OpenWeatherAdapter instance (adapter is initialized with API key) and attaches AlertSystem as an observer.
+
+3. application/
+   - services.py: Implements WeatherService (subject) and AlertSystem (observer). WeatherService orchestrates calls to the weather adapter, transforms results, persists search logs, and notifies observers when appropriate.
+   - factories.py: AlertFactory builds alert objects (RainAlert, HeatAlert, etc.) that encapsulate alert messages/logic.
+   - auth_interfaces.py: Validation schemas and authentication-related interfaces (used by routes to validate incoming register/login payloads).
+   - weather_interfaces.py: (if present) defines an interface for weather providers; the adapter implements this contract.
+
+4. domain/
+   - entities.py: SQLAlchemy models for User and WeatherLog. User stores username, password (plain text for demo only), and default host city. WeatherLog stores city, temperature, condition, timestamp, and foreign key to User.
+
+5. infrastructure/
+   - api_clients.py: OpenWeatherAdapter - a small adapter that uses OpenWeather Geo and One Call APIs to fetch coordinates, current weather, and daily forecast. It returns data shaped to the expectations of the service layer.
+   - data.py: Database setup, session provider (get_db), and init_db which builds the database schema. This is a minimal persistence helper.
+
+Data flow (login -> view weather)
+---------------------------------
+1. User registers (POST /api/register) → data validated → user inserted into DB.
+2. User logs in (POST /api/login) → credentials checked → backend responds with user_id, username, host_city.
+3. Frontend redirects to /weather with user params; script.js reads URL params and triggers fetchWeather() with the host city.
+4. fetchWeather() calls GET /api/weather?city=<>&user_id=<>.
+5. Backend route /api/weather uses WeatherService to fetch current + forecast from the adapter, logs the search (WeatherLog), and notifies AlertSystem. The route returns a JSON payload: { current, forecast, system_alert }.
+6. script.js renders current weather (temperature, condition, humidity, wind, country), displays the 8-day forecast, shows any generated alert, and refreshes the user history.
+
+Key Implementation Details
+--------------------------
+- External API: OpenWeather One Call 3.0 is used (via GEO to get lat/lon, then ONECALL to get current + daily forecast). The API key is configured in web/routes.py when creating the adapter instance.
+- Data shaping: The adapter transforms API responses to a consistent shape so the application and UI can rely on stable fields (main.temp, main.humidity, weather[0].description, weather[0].main, wind.speed, sys.country).
+- Alerts: WeatherService delegates to AlertFactory; AlertSystem (observer) produces human-friendly messages which are returned as system_alert in the weather JSON response.
+- History: Each successful search is appended to WeatherLog and returned to the front-end. The client stores all fetched history logs in memory and provides client-side filters for city and date.
+
+Files and What They Do (short list)
+-----------------------------------
+- app.py: Flask app creation and DB initialization.
+- web/routes.py: All HTTP endpoints and wiring of WeatherService + adapter + alert system.
+- web/templates/index.html: Login / Register UI.
+- web/templates/weather.html: Dashboard UI for current weather, forecast, alerts, history, and history filters.
+- web/static/script.js: All client-side logic (register/login forms, fetch weather, render UI, history filtering).
+- web/static/styles.css: Simple styles for the UI.
+- application/services.py: WeatherService and AlertSystem (business logic: fetching, notifying, logging).
+- application/factories.py: AlertFactory and alert classes.
+- application/auth_interfaces.py: Input validation schemas for registration and login.
+- infrastructure/api_clients.py: OpenWeatherAdapter used to interact with external APIs and normalize their responses.
+- infrastructure/data.py: Database engine, session generator (get_db), and init_db.
+- domain/entities.py: SQLAlchemy models (User, WeatherLog).
+- weather.db: SQLite database file created at runtime (contains users and logs).
+
+Notes, Safety, and Next Steps
+----------------------------
+- Passwords are stored in plaintext for demo simplicity; do not do this in production. Use proper password hashing (bcrypt, argon2).
+- API keys are present in source for convenience; move them to environment variables for production.
+- The app uses minimal error handling for external API failures; it falls back to demo/mock data when necessary.
+- To change the weather provider, replace or extend OpenWeatherAdapter with another adapter implementing the same shaped responses.
+
+How to run locally
+------------------
+1. Create virtual environment and install dependencies (Flask, requests, SQLAlchemy).
+2. Run `python app.py` from the project root. The app listens on port 5000 by default.
+3. Open the browser at `http://localhost:5000` to register and login.
+
+Maintenance pointers
+--------------------
+- Move secrets to environment variables and update web/routes.py to read them.
+- Add unit tests for application/services.py and infrastructure/api_clients.py.
+- Replace plaintext password storage with hashed passwords and a proper user session system (Flask-Login or JWT).
+
+That's it — this should give you a clear, single-document overview of the entire project and what each part does. If you want, I can:
+- Generate a shorter one-page summary for presentation, or
+- Add a README.md with quick run instructions and environment variable examples.

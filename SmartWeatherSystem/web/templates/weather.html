@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌤️ Weather Dashboard</h1>
+        </header>
+
+        <div id="dashboard">
+            <div class="user-bar">
+                <span>Welcome, <b id="displayUser">User</b> | Host City: <b id="displayHost">City</b></span>
+                <a href="#" onclick="logout(); return false;" class="small-btn" style="text-decoration: none; display: inline-block;">Logout</a>
+            </div>
+
+            <div class="search-box">
+                <form id="searchForm" onsubmit="handleSearchSubmit(event)" style="display: flex; gap: 10px; width: 100%;">
+                    <input type="text" id="cityInput" placeholder="Check another city..." required style="flex: 1;">
+                    <button type="submit">Search</button>
+                </form>
+            </div>
+
+            <div id="alertBanner" class="alert-banner hidden"></div>
+
+            <div class="weather-grid">
+                <div class="card">
+                    <h3>📍 Current Weather</h3>
+                    <div id="currentData">Search to view data</div>
+                </div>
+
+                <div class="card">
+                    <h3>📅 8-Day Forecast</h3>
+                    <div id="forecastData" class="forecast-list"></div>
+                </div>
+            </div>
+
+            <div class="history-section">
+                <h3>📜 Your Search History</h3>
+                <div class="filter-box">
+                    <input type="text" id="filterCity" placeholder="Filter by city..." style="padding: 8px; margin-right: 10px;">
+                    <input type="date" id="filterDate" style="padding: 8px; margin-right: 10px;">
+                    <button onclick="applyHistoryFilter()" style="padding: 8px 15px; cursor: pointer;">Filter</button>
+                    <button onclick="clearHistoryFilter()" style="padding: 8px 15px; cursor: pointer; margin-left: 5px;">Clear</button>
+                </div>
+                <div id="historyData"></div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>

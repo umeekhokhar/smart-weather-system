@@ -8,22 +8,12 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
-    role = Column(String)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)  # In a real app, hash this!
+    host_city = Column(String) # Feature: Host City
 
-    favorite_locations = relationship(
-        "FavoriteLocation", back_populates="user"
-    )
-
-class FavoriteLocation(Base):
-    __tablename__ = "favorite_locations"
-
-    location_id = Column(Integer, primary_key=True, index=True)
-    city_name = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.user_id"))
-
-    user = relationship("User", back_populates="favorite_locations")
+    # Feature: Individual History (One-to-Many)
+    logs = relationship("WeatherLog", back_populates="user")
 
 class WeatherLog(Base):
     __tablename__ = "weather_logs"
@@ -33,3 +23,7 @@ class WeatherLog(Base):
     temperature = Column(Float)
     condition = Column(String)
     logged_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Link log to a specific user
+    user_id = Column(Integer, ForeignKey("users.user_id"))
+    user = relationship("User", back_populates="logs")
